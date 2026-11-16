@@ -1,0 +1,87 @@
+// @flow
+//-----------------------------------------------------------------------------
+// More advanced searching
+// Jonathan Clark
+// Last updated 2025-03-13 for v2.0.0, @jgclark
+//-----------------------------------------------------------------------------
+
+export {
+  replace,
+  replaceOverAll,
+  replaceOverNotes,
+  replaceOverCalendar
+} from './replace'
+export {
+  quickSearch,
+  saveSearch,
+  searchOverAll,
+  searchOpenTasks,
+  searchOverNotes,
+  searchOverCalendar,
+  searchPeriod
+} from './saveSearch'
+// export { searchPeriod } from './saveSearchPeriod' Note: now refactored into saveSearch.js
+export { refreshSavedSearch } from './searchTriggers'
+export {
+  closeDialogWindow,
+  showFlexiSearchDialog,
+  flexiSearchHandler,
+  getPluginPreference,
+  savePluginPreference
+} from './flexiSearch'
+
+const pluginID = "nhueck.search"
+
+// allow changes in plugin.json to trigger recompilation
+import pluginJson from '../plugin.json'
+import { getSearchSettings } from './searchHelpers'
+import { JSP, logDebug, logError, logInfo } from '@helpers/dev'
+import { pluginUpdated, updateSettingData } from '@helpers/NPConfiguration'
+import { editSettings } from '@helpers/NPSettings'
+
+export function init(): void {
+  try {
+    // Local fork (nhueck.search): there is no online version of this plugin, so deliberately no auto-update check here.
+  } catch (error) {
+    logError(pluginID, error.message)
+    logError(pluginID, JSP(error))
+  }
+}
+
+export async function onSettingsUpdated(): Promise<void> {
+  // Read these new settings, and then set two preferences to be picked up by flexiSearch later
+  const updatedSettings = await getSearchSettings()
+  logDebug('onSettingsUpdated', `Setting caseSensitiveSearching pref to ${String(updatedSettings.caseSensitiveSearching ?? false)}`)
+  DataStore.setPreference(`${pluginID}.caseSensitiveSearching`, updatedSettings.caseSensitiveSearching ?? false)
+  logDebug('onSettingsUpdated', `Setting fullWordSearching pref to ${String(updatedSettings.fullWordSearching ?? false)}`)
+  DataStore.setPreference(`${pluginID}.fullWordSearching`, updatedSettings.fullWordSearching ?? false)
+}
+
+export async function onUpdateOrInstall(): Promise<void> {
+  try {
+    logInfo(pluginID, `onUpdateOrInstall ...`)
+    const updateSettingsResult = updateSettingData(pluginJson)
+    logInfo(pluginID, `- updateSettingData code: ${updateSettingsResult}`)
+
+    // Tell user the plugin has been updated
+    await pluginUpdated(pluginJson, { code: updateSettingsResult, message: 'unused' })
+
+  } catch (error) {
+    logError(pluginID, error.message)
+  }
+  logInfo(pluginID, `- finished`)
+}
+
+/**
+ * Update Settings/Preferences (for iOS etc)
+ * Plugin entrypoint for command: "/<plugin>: Update Plugin Settings/Preferences"
+ * @author @dwertheimer
+ */
+export async function updateSettings() {
+  try {
+    logDebug(pluginJson, `updateSettings running`)
+    await editSettings(pluginJson)
+  } catch (error) {
+    logError(pluginJson, JSP(error))
+  }
+}
