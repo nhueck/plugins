@@ -85,6 +85,7 @@ export type TSearchOptions = {
   originatorCommand?: string,
   commandNameToDisplay?: string,
   destinationArg?: string,// optional output desination indicator: 'current', 'newnote', 'log'
+  noteTitle?: string, // optional user-chosen title for the results note (for 'newnote' destination)
 }
 
 //-------------------------------------------------------------------------------
@@ -1067,6 +1068,7 @@ export async function writeSearchResultsToNote(
     // Look for an existing results note in the folder: with the favourite title, or failing that an older one without the ⭐️
     const notesInFolder = DataStore.projectNotes.filter((n) => config.folderToStore === '/' || n.filename.startsWith(`${config.folderToStore}/`))
     const existingNote: ?TNote =
+      notesInFolder.find((n) => (n.title ?? '') === `${FAV_PREFIX}${plainTitleToMatch}`) ??
       notesInFolder.find((n) => (n.title ?? '').startsWith(`${FAV_PREFIX}${plainTitleToMatch}`)) ??
       notesInFolder.find((n) => (n.title ?? '').startsWith(plainTitleToMatch))
     // If there are no results, and we would be creating a note, then stop
@@ -1116,6 +1118,17 @@ export async function writeSearchResultsToNote(
 }
 
 /**
+ * A ==highlight== that covers only part of a #hashtag or @mention (e.g. '==#==haushalt' or '#haus==halt==') breaks the tag
+ * in NotePlan's display. So widen any such highlight to cover the whole tag: '==#haushalt=='.
+ * @param {string} line
+ * @returns {string}
+ * @tests in jest file
+ */
+export function keepTagsWholeInHighlights(line: string): string {
+  return line.replace(/(^|\s)((?:==)?[#@][^\s]*)/g, (match, pre, token) => (token.includes('==') ? `${pre}==${token.split('==').join('')}==` : match))
+}
+
+/**
  * Create nicely-formatted Markdown lines to display 'resultSet', using settings from 'config'
  * @author @jgclark
  * @param {resultOutputTypeV2} resultSet
@@ -1131,7 +1144,8 @@ export function createFormattedResultLines(resultSet: resultOutputType, config: 
     const mayOrMustTermsRep = resultSet.searchTermsRepArr.filter((f) => f[0] !== '-')
     // Take off leading + or ! if necessary
     const mayOrMustTerms = mayOrMustTermsRep.map((f) => (f.match(/^[\+\!]/)) ? f.slice(1) : f)
-    const notEmptyMayOrMustTerms = mayOrMustTerms.filter((f) => f !== '')
+    // Note: terms that are only '#' or '@' are not highlighted, as that would just mark the start of every tag in the line
+    const notEmptyMayOrMustTerms = mayOrMustTerms.filter((f) => f !== '' && !/^[#@]+$/.test(f))
     // logDebug('createFormattedResultLines', `Starting with ${notEmptyMayOrMustTerms.length} notEmptyMayOrMustTerms (${String(notEmptyMayOrMustTerms)}) / simplifyLine? ${String(simplifyLine)} / groupResultsByNote? ${String(config.groupResultsByNote)} / config.resultQuoteLength = ${String(config.resultQuoteLength)}`)
     // Add each result line to output array
     let lastFilename: string
@@ -1148,7 +1162,9 @@ export function createFormattedResultLines(resultSet: resultOutputType, config: 
           resultOutputLines.push('')
           resultOutputLines.push(getGermanCalendarLink(rnal.noteFilename) ?? getNoteTitleFromFilename(rnal.noteFilename, true))
         }
-        const outputLine = trimAndHighlightTermInLine(rnal.line, notEmptyMayOrMustTerms, simplifyLine, config.highlightResults, config.resultPrefix, config.resultQuoteLength)
+        const outputLine = keepTagsWholeInHighlights(
+          trimAndHighlightTermInLine(rnal.line, notEmptyMayOrMustTerms, simplifyLine, config.highlightResults, config.resultPrefix, config.resultQuoteLength),
+        )
         resultOutputLines.push(outputLine)
         nc++
         lastFilename = thisFilename
@@ -1157,7 +1173,9 @@ export function createFormattedResultLines(resultSet: resultOutputType, config: 
         // - do I need to remove this non-grouped option entirely?
 
         // Write the line, first transforming it to add context on the end, and make other changes according to what the user has configured
-        let outputLine = trimAndHighlightTermInLine(rnal.line, notEmptyMayOrMustTerms, simplifyLine, config.highlightResults, config.resultPrefix, config.resultQuoteLength)
+        let outputLine = keepTagsWholeInHighlights(
+          trimAndHighlightTermInLine(rnal.line, notEmptyMayOrMustTerms, simplifyLine, config.highlightResults, config.resultPrefix, config.resultQuoteLength),
+        )
         outputLine += ` (${getNoteLinkForDisplay(rnal.noteFilename, config.dateStyle)})`
         resultOutputLines.push(outputLine)
         nc++

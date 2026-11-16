@@ -112,15 +112,15 @@ export async function refreshSavedSearch(): Promise<void> {
     await CommandBar.onAsyncThread()
     switch (cmdName) {
       case "search": { // -> searchOverAll()
-        searchOverAll(arg0, arg1, arg2, arg3)
+        searchOverAll(arg0, arg1, arg2, arg3, arg4)
         break
       }
       case "searchOverCalendar": {
-        searchOverCalendar(arg0, arg1, arg2, arg3)
+        searchOverCalendar(arg0, arg1, arg2, arg3, arg4)
         break
       }
       case "searchOverNotes": {
-        searchOverNotes(arg0, arg1, arg2, arg3)
+        searchOverNotes(arg0, arg1, arg2, arg3, arg4)
         break
       }
       case "searchOpenTasks": {

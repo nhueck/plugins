@@ -61,6 +61,7 @@ export async function searchOverAll(
   _noteTypesAsStr?: string = '', // Note: value ignored, but here to make the x-callback system work
   paraTypesAsStr?: string = '',
   destinationArg?: string = 'newnote',
+  noteTitleArg?: string = '', // optional title for the results note
 ): Promise<void> {
   // await saveSearch(
   //   searchTermsArg,
@@ -74,6 +75,7 @@ export async function searchOverAll(
     foldersToInclude: [],
     paraTypesToInclude: getParaTypesFromString(paraTypesAsStr),
     originatorCommand: 'searchOverAll',
+    noteTitle: noteTitleArg,
     commandNameToDisplay: 'Searching all',
   }
   await saveSearch(
@@ -91,6 +93,7 @@ export async function searchOverCalendar(
   _noteTypesAsStr?: string = '', // Note: value ignored, but here to make the x-callback system work
   paraTypesAsStr?: string = '',
   destinationArg?: string = 'newnote',
+  noteTitleArg?: string = '', // optional title for the results note
 ): Promise<void> {
   // await saveSearch(
   //   searchTermsArg,
@@ -103,6 +106,7 @@ export async function searchOverCalendar(
     foldersToInclude: [],
     paraTypesToInclude: getParaTypesFromString(paraTypesAsStr),
     originatorCommand: 'searchOverCalendar',
+    noteTitle: noteTitleArg,
     commandNameToDisplay: 'Searching Calendar notes',
   }
   await saveSearch(
@@ -118,7 +122,9 @@ export async function searchOverNotes(
   searchTermsArg?: string,
   _noteTypesAsStr?: string = '', // Note: value ignored, but here to make the x-callback system work
   paraTypesAsStr?: string = '',
-  destinationArg?: string = 'newnote'): Promise<void> {
+  destinationArg?: string = 'newnote',
+  noteTitleArg?: string = '', // optional title for the results note
+): Promise<void> {
   // await saveSearch(
   //   searchTermsArg,
   //   'notes',
@@ -130,6 +136,7 @@ export async function searchOverNotes(
     foldersToInclude: [],
     paraTypesToInclude: getParaTypesFromString(paraTypesAsStr),
     originatorCommand: 'searchOverNotes',
+    noteTitle: noteTitleArg,
     commandNameToDisplay: 'Searching all notes',
   }
   await saveSearch(
@@ -328,7 +335,7 @@ export async function saveSearch(
         return
       }
     }
-    const searchTermsRepStr = `'${validatedSearchTerms.map(term => term.termRep).join(' ')}'`.trim() // Note: we normally enclose in [] but here need to use '' otherwise NP Editor renders the link wrongly
+    const searchTermsRepStr = `'${validatedSearchTerms.filter(term => term.termRep !== '<empty>').map(term => term.termRep).join(' ')}'`.trim() // Note: we normally enclose in [] but here need to use '' otherwise NP Editor renders the link wrongly
 
     // Note: optimising the order of search terms happens in runExtendedSearches()
 
@@ -450,6 +457,9 @@ export async function saveSearch(
     // logDebug('saveSearch', 'reached do output stage')
     // const searchTermsRepStr = `'${resultSet.searchTermsRepArr.join(' ')}'`.trim() // Note: we normally enclose in [] but here need to use '' otherwise NP Editor renders the link wrongly
 
+    // Has the user given their own title for the results note?
+    const customNoteTitle = (searchOptions.noteTitle ?? '').trim()
+
     // Create the x-callback URL for the refresh action
     const xCallbackURL = (originatorCommand === 'searchPeriod')
       ? createRunPluginCallbackUrl('nhueck.search', originatorCommand, [
@@ -465,6 +475,7 @@ export async function saveSearch(
         getNoteTypesAsString(noteTypesToInclude),
         getParaTypesAsString(paraTypesToInclude),
         destinationArg,
+        ...(customNoteTitle !== '' ? [customNoteTitle] : []), // so that a refresh writes to the same named note
       ])
 
     switch (destination) {
@@ -500,7 +511,7 @@ export async function saveSearch(
         // Note: Does need to include a subhead with search term + result count
         // Note: If no results, and the search results note hasn't already been created, then don't create it just for empty results. But do update it if it already exists.
         // Note: in theory could now use the 'content' parameter on Editor.openNoteByFilename() via NPNote/openNoteByFilename() helper to update the note, if we changed writeSearchResultsToNote() to use it.
-        const requestedTitle = `${searchTermsRepStr} ${config.searchHeading}${periodAndPartStr ? ` for ${periodAndPartStr}` : ''}`
+        const requestedTitle = customNoteTitle !== '' ? customNoteTitle : `${searchTermsRepStr} ${config.searchHeading}${periodAndPartStr ? ` for ${periodAndPartStr}` : ''}`
 
         // Get/make note, and then replace the search term's block (if already present) or append.
         const noteFilename = await writeSearchResultsToNote(resultSet, searchTermsRepStr, requestedTitle, requestedTitle, config, xCallbackURL, true, false)

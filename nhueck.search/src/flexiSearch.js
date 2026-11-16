@@ -21,7 +21,8 @@ const flexiSearchDialogHTML = `
 <div class="dialogBox">
  <form type="dialog" id="searchOptions">
   <div class="dialogSection">
-		<b>Search Terms</b><input type="text" id="searchTerms" name="searchTerms" size="40" value="" autofocus tabindex="1" />&nbsp;
+    <div class="searchTermsHeader">
+		<b>Search Terms</b>
     <div class="tooltip">
       <i class="fa-regular fa-circle-question"></i>
       <div class="tooltipUnderLeft">
@@ -30,10 +31,14 @@ const flexiSearchDialogHTML = `
       Must find: <kbd>+term</kbd><br />
       Must not find in same line: <kbd>-term</kbd><br />
       Must not find in note: <kbd>!term</kbd><br />
+      Several of each kind are allowed, e.g. <kbd>#bestellung +amazon -#standard -#erledigt</kbd><br />
+      Only exclusions (e.g. <kbd>-#standard</kbd>) finds all lines of the chosen types without that term.<br />
       <a href="https://github.com/NotePlan/plugins/tree/main/jgclark.SearchExtensions/" target="_blank">Full documentation.</a>
       <u></u> <!-- used to trigger extra bit that mimics speech bubble -->
       </div>
 	</div>
+    </div>
+    <textarea id="searchTerms" name="searchTerms" rows="3" autofocus tabindex="1" placeholder="term +must -exclude !excludeNote"></textarea>
 
 	<div class="dialogSection">
 		<b>Save results to </b>
@@ -41,6 +46,10 @@ const flexiSearchDialogHTML = `
     <label for="notetype">'Quick Search' note</label>
     <input type="radio" name="savetype" id="newnote" value="newnote" />
     <label for="notetype">Specific note</label>
+    <div class="noteNameRow">
+      <label for="noteName">named</label>
+      <input type="text" id="noteName" name="noteName" value="" placeholder="(optional) your own name for the note" tabindex="2" />
+    </div>
   </div>
 
 	<div class="dialogSection">
@@ -144,7 +153,7 @@ const flexiSearchDialogHTML = `
 // Script to send the search options to the plugin and start it
 const JSStartSearchInPlugin = JSON.stringify(`
 (async function() {
-  await DataStore.invokePluginCommandByName('flexiSearchHandler', 'nhueck.search', ['%%SEARCHTERMS%%', '%%SAVETYPE%%', '%%CASE%%', '%%FULLWORD%%', '%%NOTETYPES%%', '%%PARATYPES%%'] )
+  await DataStore.invokePluginCommandByName('flexiSearchHandler', 'nhueck.search', ['%%SEARCHTERMS%%', '%%SAVETYPE%%', '%%CASE%%', '%%FULLWORD%%', '%%NOTETYPES%%', '%%PARATYPES%%', '%%NOTENAME%%'] )
 })()
 `)
 
@@ -288,10 +297,19 @@ const flexiSearchDialogPostBodyScripts = `
 			saveDialogState()
 		})
 
+    // In the (multi-line) search terms box, Return starts the search rather than adding a new line
+    const searchButton = form.querySelector('input[type="submit"]')
+    form.elements["searchTerms"].addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.isComposing) {
+        event.preventDefault()
+        form.requestSubmit(searchButton)
+      }
+    })
+
     // Add 'submit' event handler to form
     form.addEventListener("submit", (event) => {
       event.preventDefault()
-      const submitterValue = event.submitter.value
+      const submitterValue = event.submitter ? event.submitter.value : 'Search'
       console.log('submit event fired with value ' + submitterValue)
 
       // Close if user has cancelled
@@ -307,7 +325,12 @@ const flexiSearchDialogPostBodyScripts = `
       }
 
 			// Get the text input
-			const searchTerms = inputs["searchTerms"].value
+			// Note: any line breaks (e.g. from pasted text) are turned into spaces, as the terms are passed on in a single-line string.
+			// (No regex with backslashes here, as this script lives inside a JS template literal.)
+			const searchTerms = inputs["searchTerms"].value.split(String.fromCharCode(13)).join(' ').split(String.fromCharCode(10)).join(' ').trim()
+
+      // Get the optional note name. Note: straight quotes are swapped for a typographic one, as the name is passed on inside a quoted string.
+      const noteName = inputs["noteName"].value.split("'").join("’").split('"').join("’").trim()
 
       // Remove any multiple or leading or trailing comma(s)
       let noteTypes = noteTypesStr.replace(/,{2,}/g, ',').replace(/,$/, '').replace(/^,/, '')
@@ -327,7 +350,8 @@ const flexiSearchDialogPostBodyScripts = `
           .replace('%%CASE%%', caseSensitiveSearching)
           .replace('%%FULLWORD%%', fullWordSearching)
           .replace('%%NOTETYPES%%', noteTypes)
-          .replace('%%PARATYPES%%', paraTypes),
+          .replace('%%PARATYPES%%', paraTypes)
+          .replace('%%NOTENAME%%', noteName),
         onHandle: "neededDummyFunc",
         id: "1"
       })
@@ -389,8 +413,8 @@ export async function showFlexiSearchDialog(
       makeModal: false, // modal doesn't actually help us here
       postBodyScript: flexiSearchDialogPostBodyScriptsWithPrefValues,
       savedFilename: '../../nhueck.search/flexiSearchDialog.html',
-      width: 440,
-      height: 450,
+      width: 580,
+      height: 560,
       reuseUsersWindowRect: true,
       shouldFocus: true,
     }
@@ -418,7 +442,8 @@ export async function flexiSearchHandler(
   caseSensitiveSearchingAsStr: string,
   fullWordSearchingAsStr: string,
   noteType: string,
-  paraTypes: string
+  paraTypes: string,
+  noteName: string = '',
 ): Promise<void> {
   try {
     logDebug(pluginJson, `flexiSearchHandler called with [${searchTerms}] / ${saveType} / ${caseSensitiveSearchingAsStr} / ${fullWordSearchingAsStr} / ${noteType} / ${paraTypes}`)
@@ -442,6 +467,7 @@ export async function flexiSearchHandler(
       caseSensitiveSearching,
       fullWordSearching,
       originatorCommand,
+      noteTitle: noteName,
     }
     await saveSearch(searchOptions, searchTerms) // Note: no need to await, but done for consistency
     return

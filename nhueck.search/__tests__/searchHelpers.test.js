@@ -8,6 +8,7 @@ import {
   type typedSearchTerm,
   applySearchOperators,
   createFormattedResultLines,
+  keepTagsWholeInHighlights,
   normaliseSearchTerms,
   noteAndLineIntersection,
   numberOfUniqueFilenames,
@@ -633,6 +634,24 @@ describe('searchHelpers.js tests', () => {
     test('simple -# term with allowEmptyOrOnlyNegative false -> no terms', () => {
       const result = validateAndTypeSearchTerms('-#', false)
       expect(result).toEqual([])
+    })
+  })
+
+  describe('keepTagsWholeInHighlights', () => {
+    test('highlight on just the # is widened to the whole tag', () => {
+      expect(keepTagsWholeInHighlights('* Kräutertee ==#==haushalt/amazon ^9fcfub')).toEqual('* Kräutertee ==#haushalt/amazon== ^9fcfub')
+    })
+    test('highlight inside a tag is widened', () => {
+      expect(keepTagsWholeInHighlights('- buy #haus==halt== now')).toEqual('- buy ==#haushalt== now')
+    })
+    test('mention at start of line', () => {
+      expect(keepTagsWholeInHighlights('==@nik==o text')).toEqual('==@niko== text')
+    })
+    test('whole-tag and plain-word highlights are untouched', () => {
+      expect(keepTagsWholeInHighlights('- ==#haushalt== and ==word== here')).toEqual('- ==#haushalt== and ==word== here')
+    })
+    test('line without highlights is untouched', () => {
+      expect(keepTagsWholeInHighlights('* task #tag @mention')).toEqual('* task #tag @mention')
     })
   })
 
