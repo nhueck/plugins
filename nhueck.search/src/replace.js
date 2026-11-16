@@ -311,6 +311,8 @@ export async function replace(
   try {
     // get relevant settings
     const config = await getSearchSettings()
+    // The results here are only used to find the lines to change, so don't sync them (which would add block IDs to those lines)
+    config.syncOpenResultItems = false
     logDebug(pluginJson, `arg0 -> searchTermArg ${typeof searchTermArg}`)
     logDebug(pluginJson, `arg0 -> searchTermArg '${searchTermArg ?? '(not supplied)'}'`)
 

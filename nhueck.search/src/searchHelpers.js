@@ -86,6 +86,21 @@ export type TSearchOptions = {
   commandNameToDisplay?: string,
   destinationArg?: string,// optional output desination indicator: 'current', 'newnote', 'log'
   noteTitle?: string, // optional user-chosen title for the results note (for 'newnote' destination)
+  targetNoteFilename?: string, // optional filename of an existing saved search note to re-write (used when editing a saved search)
+}
+
+// The details of a saved search, as read back from the 'Refresh' button in its results note
+export type TSavedSearch = {
+  filename: string, // of the results note ('' if not known)
+  title: string, // of the results note ('' if not known)
+  command: string, // command named in the Refresh button
+  searchTerms: string,
+  noteTypes: string, // 'notes' | 'calendar' | 'both'
+  paraTypes: string, // comma-separated ParagraphTypes; '' means all
+  destination: string, // 'newnote' | 'quick' | 'current' ...
+  noteTitle: string, // user-chosen title for the results note, or ''
+  fromDateStr: string, // only for searches over a period, otherwise ''
+  toDateStr: string, // ditto
 }
 
 //-------------------------------------------------------------------------------
@@ -93,6 +108,12 @@ export type TSearchOptions = {
 
 export const OPEN_PARA_TYPES = ['open', 'scheduled', 'checklist', 'checklistScheduled']
 export const SYNCABLE_PARA_TYPES = ['open', 'scheduled', 'checklist', 'checklistScheduled']
+// Paragraph types that are never sync'd, even when all result lines are to be sync'd
+export const UNSYNCABLE_PARA_TYPES = ['title', 'empty', 'separator', 'code']
+// Choices for the 'syncResultLines' setting
+export const SYNC_ALL_LINES = 'All lines'
+export const SYNC_OPEN_ITEMS = 'Open tasks and checklists only'
+export const SYNC_NO_LINES = 'None'
 
 //------------------------------------------------------------------------------
 // Config for SearchExtensions plugin
@@ -117,6 +138,7 @@ export type SearchConfig = {
   dateStyle: string,
   resultLimit: number,
   syncOpenResultItems: boolean,
+  syncResultLines: string, // which result lines to sync with their source lines: one of the SYNC_... constants
 }
 
 /**
@@ -136,7 +158,14 @@ export async function getSearchSettings(): Promise<any> {
     }
     // Set syncOpenResultItems which is a special case. There's no separate setting for it (in SE), as is it is implied by resultStyle === 'NotePlan'
     // But it can be overridden by calls from other plugins.
-    v2Config.syncOpenResultItems = v2Config.resultStyle === 'NotePlan'
+    // Note: the setting's default used to be 'NotePlan-style', which matched neither choice and so silently switched all line sync-ing off. So treat everything other than 'Simplified' as 'NotePlan'.
+    if (v2Config.resultStyle !== 'Simplified') {
+      v2Config.resultStyle = 'NotePlan'
+    }
+    if (![SYNC_ALL_LINES, SYNC_OPEN_ITEMS, SYNC_NO_LINES].includes(v2Config.syncResultLines)) {
+      v2Config.syncResultLines = SYNC_ALL_LINES
+    }
+    v2Config.syncOpenResultItems = v2Config.resultStyle === 'NotePlan' && v2Config.syncResultLines !== SYNC_NO_LINES
 
     return v2Config
   } catch (err) {
@@ -196,6 +225,129 @@ export function getNoteTypesAsString(noteTypes: Array<string>): string {
   return (noteTypes.length === 0 || noteTypes.length === 2)
     ? 'both'
     : noteTypes[0]
+}
+
+// Earlier versions of the flexiSearch dialog used these names, which aren't real paragraph types
+const OLD_PARA_TYPE_NAMES: { [string]: string } = {
+  taskScheduled: 'scheduled',
+  taskCancelled: 'cancelled',
+  checklistOpen: 'checklist',
+}
+
+/**
+ * Tidy up a comma-separated string of paragraph types: remove empty items and duplicates, and correct the names that earlier versions of the flexiSearch dialog used.
+ * @tests in jest file
+ * @param {string} paraTypesAsStr
+ * @returns {string}
+ */
+export function normaliseParaTypesString(paraTypesAsStr: string): string {
+  const out: Array<string> = []
+  for (const item of paraTypesAsStr.split(',')) {
+    const trimmed = item.trim()
+    const name = OLD_PARA_TYPE_NAMES[trimmed] ?? trimmed
+    if (name !== '' && !out.includes(name)) out.push(name)
+  }
+  return out.join(',')
+}
+
+/**
+ * Find the x-callback URL of the first 'Refresh' button of this plugin in the given note content.
+ * @tests in jest file
+ * @param {string} content of a note
+ * @returns {string} the URL, or '' if there is none
+ */
+export function findRefreshURLInContent(content: string): string {
+  for (const line of content.split('\n')) {
+    if (!line.includes('Refresh ')) continue
+    const match = line.match(/noteplan:\/\/x-callback-url\/runPlugin\?pluginID=nhueck\.search&[^\s)]*/)
+    if (match) return match[0]
+  }
+  return ''
+}
+
+/**
+ * Read the details of a saved search back from the x-callback URL of its 'Refresh' button.
+ * Note: the filename and title are left empty, as they can't be known from the URL.
+ * @tests in jest file
+ * @param {string} url
+ * @returns {?TSavedSearch} null if this isn't a URL for one of this plugin's search commands
+ */
+export function parseSavedSearchURL(url: string): ?TSavedSearch {
+  const queryStart = url.indexOf('?')
+  if (queryStart < 0) return null
+  const params: { [string]: string } = {}
+  for (const part of url.slice(queryStart + 1).split('&')) {
+    const eqPos = part.indexOf('=')
+    const key = eqPos < 0 ? part : part.slice(0, eqPos)
+    const rawValue = eqPos < 0 ? '' : part.slice(eqPos + 1)
+    try {
+      params[decodeURIComponent(key)] = decodeURIComponent(rawValue.replace(/\+/g, ' '))
+    } catch (err) {
+      return null // malformed encoding
+    }
+  }
+  if (params.pluginID !== 'nhueck.search') return null
+  const command = params.command ?? ''
+  const arg = (n: number): string => params[`arg${n}`] ?? ''
+  const isPeriod = command === 'searchPeriod' || command === 'searchInPeriod'
+  let noteTypes = ''
+  let paraTypes = arg(2)
+  switch (command) {
+    case 'search':
+    case 'searchOverAll':
+      noteTypes = 'both'
+      break
+    case 'searchOverCalendar':
+    case 'searchPeriod':
+    case 'searchInPeriod':
+      noteTypes = 'calendar'
+      break
+    case 'searchOverNotes':
+      noteTypes = 'notes'
+      break
+    case 'searchOpenTasks':
+      noteTypes = arg(1)
+      paraTypes = OPEN_PARA_TYPES.join(',')
+      break
+    case 'quickSearch':
+      noteTypes = arg(1)
+      break
+    default:
+      return null
+  }
+  if (noteTypes !== 'notes' && noteTypes !== 'calendar') noteTypes = 'both'
+  return {
+    filename: '',
+    title: '',
+    command,
+    searchTerms: arg(0),
+    noteTypes,
+    paraTypes: normaliseParaTypesString(paraTypes),
+    destination: command === 'quickSearch' ? 'quick' : (arg(3) !== '' ? arg(3) : 'newnote'),
+    noteTitle: isPeriod ? '' : arg(4),
+    fromDateStr: isPeriod ? arg(4) : '',
+    toDateStr: isPeriod ? arg(5) : '',
+  }
+}
+
+/**
+ * Get the details of all saved searches, i.e. of all notes in the 'saved searches' folder that have a 'Refresh' button from this plugin.
+ * @param {SearchConfig} config
+ * @returns {Array<TSavedSearch>} sorted by note title
+ */
+export function getSavedSearches(config: SearchConfig): Array<TSavedSearch> {
+  const out: Array<TSavedSearch> = []
+  const notesInFolder = DataStore.projectNotes.filter((n) => config.folderToStore === '/' || n.filename.startsWith(`${config.folderToStore}/`))
+  for (const n of notesInFolder) {
+    const content = n.content ?? ''
+    if (!content.includes('pluginID=nhueck.search&')) continue
+    const savedSearch = parseSavedSearchURL(findRefreshURLInContent(content))
+    if (savedSearch) {
+      out.push({ ...savedSearch, filename: n.filename, title: n.title ?? n.filename })
+    }
+  }
+  out.sort((a, b) => a.title.localeCompare(b.title))
+  return out
 }
 
 /**
@@ -767,10 +919,10 @@ export async function runExtendedSearches(
       consolidatedResultSet.resultNoteAndLineArr.sort(compareByCalendarOrder)
     }
 
-    // For open tasks, add line sync with blockIDs (if wanted, and using NotePlan display style)
+    // Add line sync with blockIDs to the result lines (if wanted, and using NotePlan display style)
     // clo(consolidatedResultSet, 'after applySearchOperators, consolidatedResultSet =')
     if (config.resultStyle === 'NotePlan' && config.syncOpenResultItems) {
-      const syncdConsolidatedResultSet = await makeAnySyncs(consolidatedResultSet)
+      const syncdConsolidatedResultSet = await makeAnySyncs(consolidatedResultSet, config.syncResultLines !== SYNC_OPEN_ITEMS)
       // clo(syncdConsolidatedResultSet, 'after makeAnySyncs, syncdConsolidatedResultSet =')
       return syncdConsolidatedResultSet
     } else {
@@ -1019,6 +1171,7 @@ export function resultCounts(resultSet: resultOutputType): string {
  * @param {string?} xCallbackURL URL to cause a 'refresh' of this command
  * @param {boolean?} justReplaceSection if set, will just replace this justReplaceSection's section, not replace the whole note (default: false)
  * @param {boolean?} createNoteIfNoResults if set, will create a note even if there are no results
+ * @param {string?} targetNoteFilename if set, write to this existing note (whatever its current title), rather than looking for one by title. Used when editing a saved search.
  * @returns {string} filename of note we've written to
  */
 export async function writeSearchResultsToNote(
@@ -1030,13 +1183,16 @@ export async function writeSearchResultsToNote(
   xCallbackURL: string = '',
   justReplaceSection: boolean = false,
   createNoteIfNoResults: boolean = false,
+  targetNoteFilename: string = '',
 ): Promise<string> {
   try {
     let noteFilename = ''
     const headingMarker = '#'.repeat(config.headingLevel)
     // const searchTermsRepStr = `'${resultSet.searchTermsRepArr.join(' ')}'`.trim() // Note: we normally enclose in [] but here need to use '' otherwise NP Editor renders the link wrongly
     logDebug('writeSearchResultsToNote', `Starting with ${resultSet.resultCount} results for [${searchTermsRepStr}] ...`)
-    const xCallbackText = (xCallbackURL !== '') ? ` [🔄 Refresh results for ${searchTermsRepStr}](${xCallbackURL})` : ''
+    // Note: the Refresh button has to come first, as the refresh trigger and the 'edit saved search' command use the first URL in the line
+    const editURL = 'noteplan://x-callback-url/runPlugin?pluginID=nhueck.search&command=editSavedSearch'
+    const xCallbackText = (xCallbackURL !== '') ? ` [🔄 Refresh results for ${searchTermsRepStr}](${xCallbackURL}) [✏️ Edit](${editURL})` : ''
     logDebug('writeSearchResultsToNote', `- xCallbackText = ${xCallbackText}`)
     const timestampAndRefreshLine = `at ${nowLocaleShortDateTime()}${xCallbackText}`
 
@@ -1068,6 +1224,7 @@ export async function writeSearchResultsToNote(
     // Look for an existing results note in the folder: with the favourite title, or failing that an older one without the ⭐️
     const notesInFolder = DataStore.projectNotes.filter((n) => config.folderToStore === '/' || n.filename.startsWith(`${config.folderToStore}/`))
     const existingNote: ?TNote =
+      (targetNoteFilename !== '' ? DataStore.projectNoteByFilename(targetNoteFilename) : null) ??
       notesInFolder.find((n) => (n.title ?? '') === `${FAV_PREFIX}${plainTitleToMatch}`) ??
       notesInFolder.find((n) => (n.title ?? '').startsWith(`${FAV_PREFIX}${plainTitleToMatch}`)) ??
       notesInFolder.find((n) => (n.title ?? '').startsWith(plainTitleToMatch))
@@ -1226,12 +1383,13 @@ export function logBasicResultLines(resultSet: resultOutputType, config: SearchC
 }
 
 /**
- * Go through results, and if there are open task lines, then sync lines by adding a blockID (having checked there isn't one already).
+ * Go through results, and sync the result lines with their source lines, by adding a blockID to the source line (having checked there isn't one already).
  * @author @jgclark
  * @param {resultOutputType} input
+ * @param {boolean?} syncAllLines if true, sync all lines (other than headings, separators and code); otherwise just open tasks and checklists (default)
  * @returns {resultOutputType}
  */
-export async function makeAnySyncs(input: resultOutputType): Promise<resultOutputType> {
+export async function makeAnySyncs(input: resultOutputType, syncAllLines: boolean = false): Promise<resultOutputType> {
   try {
     // Go through each line looking for open tasks
     const linesToSync = []
@@ -1244,8 +1402,10 @@ export async function makeAnySyncs(input: resultOutputType): Promise<resultOutpu
       const thisPara = thisNote?.paragraphs?.[rnal.index]
       const thisType = thisPara?.type ?? ''
 
-      // If this line is an open-type task without existing blockID, then add to array to process
-      if (thisNote && SYNCABLE_PARA_TYPES.includes(thisType) && thisPara && !thisPara?.blockId) {
+      // If this line is of a type to sync (open-type tasks, or all lines other than headings etc.) without existing blockID, then add to array to process
+      // Note: lines that already have a blockID need nothing doing, as it is part of the line that gets written to the results.
+      const isTypeToSync = syncAllLines ? (thisType !== '' && !UNSYNCABLE_PARA_TYPES.includes(thisType)) : SYNCABLE_PARA_TYPES.includes(thisType)
+      if (thisNote && isTypeToSync && thisPara && !thisPara?.blockId) {
         linesToSync.push([thisIndex, thisLine, thisNote, thisPara, thisType])
         logDebug('makeAnySyncs', `- lineToSync from rnal index ${thisIndex}`)
       }
@@ -1254,7 +1414,7 @@ export async function makeAnySyncs(input: resultOutputType): Promise<resultOutpu
 
     // If >=20 open tasks, check user really wants to do this
     if (linesToSync.length >= 20) {
-      const res = await showMessageYesNo(`I have found ${linesToSync.length} results with open tasks, which will be sync'd to this note. Do you wish to continue?`)
+      const res = await showMessageYesNo(`I have found ${linesToSync.length} result lines${syncAllLines ? '' : ' with open tasks'} that aren't sync'd yet. Sync-ing adds a block ID to each of these lines in their notes. Do you wish to continue?`)
       if (res !== 'Yes') {
         return input
       }

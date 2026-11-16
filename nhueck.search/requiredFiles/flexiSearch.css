@@ -48,6 +48,19 @@ input[type="text"] {
   padding-left: 0.2rem;
   font-size: 0.9rem;
 }
+select {
+  margin-left: 0.4rem;
+  max-width: 17rem;
+  font-size: 0.9rem;
+}
+.editInfo {
+  margin-top: 0.2rem;
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+.editInfo:empty {
+  display: none;
+}
 input[type="checkbox"] {
   margin: 1px 4px 0px 1px;
   /* margin-top: 1px; */

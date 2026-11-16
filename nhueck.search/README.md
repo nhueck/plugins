@@ -14,6 +14,8 @@ NotePlan can search over your notes, but it is currently not very flexible or ea
 
   <img width="450px" alt="FlexiSearch" src="flexiSearch-dialog1@2x.png"/>
   
+  The dialog can also **edit an existing saved search**: choose it under "Edit saved search" at the top (or run **/editSavedSearch**, or click the "✏️ Edit" button next to the Refresh button in a saved search note). Its terms and options are loaded into the dialog, and "Save & Search" writes the changed search back into the same note.
+
   Note: when /flexiSearch is run on iPhone or iPad you will need to close the dialog box by pressing the X in the top right-hand corner after the search has run. (I'm trying to find a way around this limitation.)
 
 - **/quickSearch** searches across **all notes** (both calendar and regular notes), saving to a pre-set 'Quick Search Results' note. (Alias: **/qs**.)

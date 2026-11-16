@@ -131,8 +131,19 @@
       ],
       "description": "Save results from a search with the most flexible of options",
       "jsFunction": "showFlexiSearchDialog",
-      "arguments": [],
-      "comment": "Note: no arguments possible"
+      "arguments": [
+        "(optional) filename of a saved search note to edit"
+      ]
+    },
+    {
+      "name": "editSavedSearch",
+      "alias": [
+        "ess",
+        "edit"
+      ],
+      "description": "Edit a saved search (the one in the open note, or one chosen from a list) in the flexiSearch dialog",
+      "jsFunction": "editSavedSearch",
+      "arguments": []
     },
     {
       "name": "replace over all notes",
@@ -187,8 +198,13 @@
       "jsFunction": "flexiSearchHandler",
       "arguments": [
         "searchTerms",
+        "saveType",
+        "caseSensitive",
+        "fullWord",
         "noteTypesToInclude",
-        "paraTypes"
+        "paraTypes",
+        "noteName",
+        "editIndex"
       ]
     },
     {
@@ -313,13 +329,26 @@
     {
       "key": "resultStyle",
       "title": "Display style for search result lines",
-      "description": "Choose the style to use:\n- Normal 'NotePlan' styling, showing tasks, bullets and quotes, tweaked slightly for matching headings. You need to use this if you want to use the power of sync'd lines with the /searchOpenTasks command.\n- Use 'Simplified' text, more like web search engine results.\nNote: this affects some of the following settings.",
+      "description": "Choose the style to use:\n- Normal 'NotePlan' styling, showing tasks, bullets and quotes, tweaked slightly for matching headings. You need to use this if you want result lines to be sync'd with their source lines.\n- Use 'Simplified' text, more like web search engine results.\nNote: this affects some of the following settings.",
       "type": "string",
       "choices": [
         "NotePlan",
         "Simplified"
       ],
-      "default": "NotePlan-style",
+      "default": "NotePlan",
+      "required": true
+    },
+    {
+      "key": "syncResultLines",
+      "title": "Sync result lines with their source lines",
+      "description": "Which result lines to link to the lines they were found in (as NotePlan 'synced lines', shown by the asterisk at the end), so that a change to one also changes the other. This adds a block ID to the found lines in their notes. Sync'd lines can't have their search terms highlighted. Only available with the 'NotePlan' display style.",
+      "type": "string",
+      "choices": [
+        "All lines",
+        "Open tasks and checklists only",
+        "None"
+      ],
+      "default": "All lines",
       "required": true
     },
     {

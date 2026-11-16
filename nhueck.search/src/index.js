@@ -24,6 +24,7 @@ export {
 export { refreshSavedSearch } from './searchTriggers'
 export {
   closeDialogWindow,
+  editSavedSearch,
   showFlexiSearchDialog,
   flexiSearchHandler,
   getPluginPreference,

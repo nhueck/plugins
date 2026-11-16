@@ -8,11 +8,14 @@ import {
   type typedSearchTerm,
   applySearchOperators,
   createFormattedResultLines,
+  findRefreshURLInContent,
   keepTagsWholeInHighlights,
+  normaliseParaTypesString,
   normaliseSearchTerms,
   noteAndLineIntersection,
   numberOfUniqueFilenames,
   optimiseOrderOfSearchTerms,
+  parseSavedSearchURL,
   reduceNoteAndLineArray,
   validateAndTypeSearchTerms,
 } from '../src/searchHelpers'
@@ -718,3 +721,85 @@ describe('searchHelpers.js tests', () => {
 //     expect(result).toEqual(diffArr)
 //   })
 // })
+
+describe('reading saved searches back from Refresh buttons', () => {
+  // URLs as written by createRunPluginCallbackUrl()
+  const makeURL = (command: string, args: Array<string>): string =>
+    `noteplan://x-callback-url/runPlugin?pluginID=nhueck.search&command=${encodeURIComponent(command)}${args.map((a, i) => `&arg${i}=${encodeURIComponent(a)}`).join('')}`
+      .replace(/\(/g, '%28')
+      .replace(/\)/g, '%29')
+
+  describe('normaliseParaTypesString()', () => {
+    test('empty', () => {
+      expect(normaliseParaTypesString('')).toEqual('')
+    })
+    test('stray commas and duplicates', () => {
+      expect(normaliseParaTypesString(',open,,done,open,')).toEqual('open,done')
+    })
+    test('old dialog names', () => {
+      expect(normaliseParaTypesString('open,taskScheduled,taskCancelled,checklistOpen,checklistDone')).toEqual('open,scheduled,cancelled,checklist,checklistDone')
+    })
+  })
+
+  describe('findRefreshURLInContent()', () => {
+    test('no button', () => {
+      expect(findRefreshURLInContent('---\ntitle: test\n---\nsome text\n')).toEqual('')
+    })
+    test('other plugin button is ignored', () => {
+      expect(findRefreshURLInContent('at now [🔄 Refresh results](noteplan://x-callback-url/runPlugin?pluginID=jgclark.SearchExtensions&command=search&arg0=a)')).toEqual('')
+    })
+    test('takes the Refresh URL, not the Edit URL after it', () => {
+      const url = makeURL('search', ['#tag +must (x)', 'both', 'open,done', 'newnote'])
+      const content = `---\ntitle: ⭐️ test\n---\n## '#tag +must' (3 results)\nat 16.11.26 [🔄 Refresh results for '#tag +must'](${url}) [✏️ Edit](noteplan://x-callback-url/runPlugin?pluginID=nhueck.search&command=editSavedSearch)\n- result`
+      expect(findRefreshURLInContent(content)).toEqual(url)
+    })
+  })
+
+  describe('parseSavedSearchURL()', () => {
+    test('not a search URL', () => {
+      expect(parseSavedSearchURL('')).toBeNull()
+      expect(parseSavedSearchURL('noteplan://x-callback-url/runPlugin?pluginID=nhueck.search&command=editSavedSearch')).toBeNull()
+      expect(parseSavedSearchURL('noteplan://x-callback-url/runPlugin?pluginID=other.plugin&command=search&arg0=a')).toBeNull()
+    })
+    test('search with special characters and custom note name', () => {
+      const res = parseSavedSearchURL(makeURL('search', [`#bestellung +amazon -"it's (new)" & more`, 'both', 'open,taskScheduled', 'newnote', 'Meine Suche']))
+      expect(res).toEqual({
+        filename: '',
+        title: '',
+        command: 'search',
+        searchTerms: `#bestellung +amazon -"it's (new)" & more`,
+        noteTypes: 'both',
+        paraTypes: 'open,scheduled',
+        destination: 'newnote',
+        noteTitle: 'Meine Suche',
+        fromDateStr: '',
+        toDateStr: '',
+      })
+    })
+    test('searchOverCalendar without para types or note name', () => {
+      const res = parseSavedSearchURL(makeURL('searchOverCalendar', ['term', 'calendar', '', 'newnote']))
+      expect(res?.noteTypes).toEqual('calendar')
+      expect(res?.paraTypes).toEqual('')
+      expect(res?.noteTitle).toEqual('')
+    })
+    test('searchOverNotes', () => {
+      expect(parseSavedSearchURL(makeURL('searchOverNotes', ['term', 'notes', 'list', 'newnote']))?.noteTypes).toEqual('notes')
+    })
+    test('quickSearch', () => {
+      const res = parseSavedSearchURL(makeURL('quickSearch', ['term', 'notes', 'text', 'newnote']))
+      expect(res?.destination).toEqual('quick')
+      expect(res?.noteTypes).toEqual('notes')
+    })
+    test('searchOpenTasks', () => {
+      const res = parseSavedSearchURL(makeURL('searchOpenTasks', ['term', 'both', '', 'newnote']))
+      expect(res?.paraTypes).toEqual('open,scheduled,checklist,checklistScheduled')
+    })
+    test('searchPeriod keeps its dates', () => {
+      const res = parseSavedSearchURL(makeURL('searchPeriod', ['term', 'calendar', 'open', 'newnote', '20260101', '20260331']))
+      expect(res?.noteTypes).toEqual('calendar')
+      expect(res?.noteTitle).toEqual('')
+      expect(res?.fromDateStr).toEqual('20260101')
+      expect(res?.toDateStr).toEqual('20260331')
+    })
+  })
+})

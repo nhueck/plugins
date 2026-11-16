@@ -514,10 +514,12 @@ export async function saveSearch(
         const requestedTitle = customNoteTitle !== '' ? customNoteTitle : `${searchTermsRepStr} ${config.searchHeading}${periodAndPartStr ? ` for ${periodAndPartStr}` : ''}`
 
         // Get/make note, and then replace the search term's block (if already present) or append.
-        const noteFilename = await writeSearchResultsToNote(resultSet, searchTermsRepStr, requestedTitle, requestedTitle, config, xCallbackURL, true, false)
+        // Note: when editing a saved search, its existing note is re-written completely (as its title and heading may well have changed).
+        const targetNoteFilename = searchOptions.targetNoteFilename ?? ''
+        const noteFilename = await writeSearchResultsToNote(resultSet, searchTermsRepStr, requestedTitle, requestedTitle, config, xCallbackURL, targetNoteFilename === '', false, targetNoteFilename)
 
         logDebug('saveSearch', `- filename to write to (and potentially show in split): '${noteFilename}'`)
-        if (!calledNonInteractively) {
+        if (noteFilename !== '' && (!calledNonInteractively || targetNoteFilename !== '')) {
           if (noteOpenInEditor(noteFilename)) {
             logDebug('saveSearch', `- note ${noteFilename} already open in an editor window`)
           } else {
