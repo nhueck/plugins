@@ -1,0 +1,118 @@
+{
+  "noteplan.minAppVersion": "3.7.2",
+  "macOS.minVersion": "10.13.0",
+  "plugin.id": "nhueck.Vorlagen",
+  "plugin.name": "🗓 Vorlagen (nhueck)",
+  "plugin.description": "Trägt in Tages-, Wochen- und Monatsnotizen, die schon Inhalt, aber noch keine Vorlage haben, die Standard-Vorlage nach und sortiert die vorhandenen Zeilen ein (Aufgaben, Lieferungen, Rest).",
+  "plugin.author": "nhueck",
+  "plugin.version": "0.1.0",
+  "plugin.lastUpdateInfo": "0.1.0: erste Version",
+  "plugin.dependencies": [],
+  "plugin.script": "script.js",
+  "plugin.isRemote": "false",
+  "plugin.commands": [
+    {
+      "name": "Vorlagen nachtragen",
+      "alias": ["vorlagen", "vn"],
+      "description": "Alle Tages-, Wochen- und Monatsnotizen mit Inhalt, aber ohne Vorlage, bekommen die Vorlage",
+      "jsFunction": "vorlagenNachtragen"
+    },
+    {
+      "name": "Vorlage in diese Notiz",
+      "alias": ["vorlage", "vd"],
+      "description": "Die geöffnete Kalendernotiz bekommt die Vorlage, vorhandene Zeilen werden einsortiert",
+      "jsFunction": "vorlageInDieseNotiz"
+    }
+  ],
+  "plugin.settings": [
+    {
+      "type": "heading",
+      "title": "Vorlagen"
+    },
+    {
+      "key": "templateDay",
+      "title": "Vorlage für Tagesnotizen",
+      "description": "Titel der Vorlage im Ordner @Templates. Leer lassen, um Tagesnotizen nicht zu behandeln.",
+      "type": "string",
+      "default": "01 Tägliche Notiz mit Terminen (Vorlage)",
+      "required": false
+    },
+    {
+      "key": "templateWeek",
+      "title": "Vorlage für Wochennotizen",
+      "description": "Titel der Vorlage im Ordner @Templates. Leer lassen, um Wochennotizen nicht zu behandeln.",
+      "type": "string",
+      "default": "02 Wöchentliche Notiz",
+      "required": false
+    },
+    {
+      "key": "templateMonth",
+      "title": "Vorlage für Monatsnotizen",
+      "description": "Titel der Vorlage im Ordner @Templates. Leer lassen, um Monatsnotizen nicht zu behandeln.",
+      "type": "string",
+      "default": "03 Monatliche Notiz",
+      "required": false
+    },
+    {
+      "type": "heading",
+      "title": "Einsortieren"
+    },
+    {
+      "key": "taskHeading",
+      "title": "Überschrift für Aufgaben",
+      "description": "Aufgaben kommen ans Ende des Abschnitts mit dieser Überschrift.",
+      "type": "string",
+      "default": "Aufgaben",
+      "required": true
+    },
+    {
+      "key": "deliveryHeading",
+      "title": "Überschrift für Lieferungen",
+      "description": "Zeilen mit dem Lieferungs-Tag kommen ans Ende des Abschnitts mit dieser Überschrift.",
+      "type": "string",
+      "default": "Lieferungen",
+      "required": true
+    },
+    {
+      "key": "deliveryTag",
+      "title": "Tag für Lieferungen",
+      "description": "Zeilen mit diesem Tag (auch mit Unter-Tags wie #bestellung/amazon) gelten als Lieferung.",
+      "type": "string",
+      "default": "#bestellung",
+      "required": true
+    },
+    {
+      "key": "includePastNotes",
+      "title": "Auch vergangene Notizen behandeln?",
+      "description": "Normalerweise werden nur Notizen behandelt, deren Zeitraum heute oder später endet.",
+      "type": "bool",
+      "default": false,
+      "required": true
+    },
+    {
+      "type": "heading",
+      "title": "Termine aktuell halten"
+    },
+    {
+      "key": "eventsTrigger",
+      "title": "Befehl beim Öffnen der Notiz",
+      "description": "Notizen, deren Vorlage Termine auflistet (events()-Tag), bekommen zusätzlich einen onOpen-Trigger mit diesem Befehl, damit die Termine bei jedem Öffnen aktualisiert werden. Schreibweise: Plugin-ID.Befehlsname. Leer lassen, um keinen Trigger einzutragen.",
+      "type": "string",
+      "default": "nhueck.GroupTasks.refreshEvents",
+      "required": false
+    },
+    {
+      "type": "heading",
+      "title": "Debugging"
+    },
+    {
+      "key": "_logLevel",
+      "type": "string",
+      "title": "Log Level",
+      "choices": ["DEBUG", "INFO", "WARN", "ERROR", "none"],
+      "description": "Wie viel das Plugin in die Plugin-Konsole schreibt.",
+      "default": "INFO",
+      "required": true
+    }
+  ]
+}
