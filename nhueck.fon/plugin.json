@@ -1,0 +1,84 @@
+{
+  "noteplan.minAppVersion": "3.7.2",
+  "macOS.minVersion": "10.13.0",
+  "plugin.id": "nhueck.fon",
+  "plugin.name": "📞 Fon (nhueck)",
+  "plugin.description": "Sucht in der geöffneten Notiz nach Nachnamen aus dem Adressbuch und schreibt die Telefonnummer anklickbar dahinter. Die Kontakte kommen aus einer Notiz, die ein Apple-Kurzbefehl aus dem Adressbuch füllt.",
+  "plugin.author": "nhueck",
+  "plugin.version": "0.1.0",
+  "plugin.lastUpdateInfo": "0.1.0: erste Version",
+  "plugin.dependencies": [],
+  "plugin.script": "script.js",
+  "plugin.isRemote": "false",
+  "plugin.commands": [
+    {
+      "name": "Telefonnummern einfügen",
+      "alias": ["fon", "tel"],
+      "description": "Schreibt hinter die Nachnamen in der geöffneten Notiz die Telefonnummer aus dem Adressbuch",
+      "jsFunction": "telefonnummernEinfuegen"
+    },
+    {
+      "name": "kontakteImportieren",
+      "alias": ["Kontakte importieren"],
+      "description": "Übernimmt die Kontakte aus der Zwischenablage in die Kontakte-Notiz (wird vom Kurzbefehl „Kontakte exportieren“ aufgerufen)",
+      "jsFunction": "kontakteImportieren",
+      "arguments": ["(optional) Text mit den Kontakten; sonst wird die Zwischenablage genommen"]
+    }
+  ],
+  "plugin.settings": [
+    {
+      "type": "heading",
+      "title": "Kontakte"
+    },
+    {
+      "key": "contactsNote",
+      "title": "Kontakte-Notiz",
+      "description": "Dateiname (mit Ordner) der Notiz mit den Kontakten. Sie wird vom Befehl „kontakteImportieren“ geschrieben.",
+      "type": "string",
+      "default": "@Kontakte/Telefonliste.md",
+      "required": true
+    },
+    {
+      "key": "namesToIgnore",
+      "title": "Nachnamen ignorieren",
+      "description": "Nachnamen (durch Komma getrennt), die nie eine Nummer bekommen sollen – z. B. solche, die auch gewöhnliche Wörter sind (Koch, Klein, Lang).",
+      "type": "string",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "heading",
+      "title": "Eintragen"
+    },
+    {
+      "key": "occurrences",
+      "title": "Welche Vorkommen bekommen eine Nummer?",
+      "description": "Steht ein Name mehrmals in der Notiz: nur beim ersten Mal die Nummer eintragen, oder jedes Mal.",
+      "type": "string",
+      "choices": ["Nur das erste Vorkommen je Name", "Alle Vorkommen"],
+      "default": "Nur das erste Vorkommen je Name",
+      "required": true
+    },
+    {
+      "key": "linkPrefix",
+      "title": "Zeichen vor der Nummer",
+      "description": "Wird im Link vor die Nummer gesetzt. Leer lassen, um nur die Nummer zu zeigen.",
+      "type": "string",
+      "default": "📞 ",
+      "required": false
+    },
+    {
+      "type": "heading",
+      "title": "Debugging"
+    },
+    {
+      "key": "_logLevel",
+      "type": "string",
+      "title": "Log Level",
+      "choices": ["DEBUG", "INFO", "WARN", "ERROR", "none"],
+      "description": "Wie viel das Plugin in die Plugin-Konsole schreibt.",
+      "default": "INFO",
+      "required": true
+    }
+  ]
+}
