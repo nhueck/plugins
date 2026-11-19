@@ -1,7 +1,7 @@
 // @flow
 //-----------------------------------------------------------------------------
 // Fon (nhueck): find last names from the address book in the open note, and write the phone number
-// after them as a clickable link.
+// in an indented line below, as a clickable link.
 // The NotePlan plugin API has no access to the address book, so the contacts are read from a note.
 // That note is written by the 'kontakteImportieren' command, from the text that an Apple Shortcut
 // puts on the clipboard (see README).
@@ -11,14 +11,17 @@ import pluginJson from '../plugin.json'
 import {
   type Occurrence,
   type PhoneChoice,
-  applyInsertions,
   findOccurrences,
   formatContactsNote,
   getPhoneChoices,
+  getTelURLs,
   groupByLastName,
+  isPhoneLine,
   makeChoiceLabel,
   makeNameRegex,
+  makePhoneLine,
   makePhoneLink,
+  makeTelURL,
   parseContactsNote,
   parseShortcutExport,
 } from './fonHelpers'
@@ -42,7 +45,7 @@ function getConfig(): FonConfig {
   return {
     contactsNote: String(s.contactsNote ?? '@Kontakte/Telefonliste.md').trim(),
     occurrences: String(s.occurrences ?? ''),
-    linkPrefix: String(s.linkPrefix ?? '📞 '),
+    linkPrefix: String(s.linkPrefix ?? ''),
     namesToIgnore: String(s.namesToIgnore ?? '').split(','),
   }
 }
@@ -61,7 +64,7 @@ function getContactsNote(nameOrFilename: string): ?TNote {
 }
 
 /**
- * Plugin command: write the phone numbers after the last names in the open note.
+ * Plugin command: write the phone numbers of the last names in the open note, each in an indented line below the line with the name.
  */
 export async function telefonnummernEinfuegen(): Promise<void> {
   try {
@@ -107,7 +110,18 @@ export async function telefonnummernEinfuegen(): Promise<void> {
       }
       if (inFrontmatter || para.type === 'code' || para.type === 'empty' || para.type === 'separator') continue
       if (i === 0 && para.type === 'title') continue
+      // the lines with phone numbers that this command wrote earlier are not searched
+      if (isPhoneLine(para.content)) continue
+      // Which numbers already stand in the phone lines right below this line?
+      const telURLsBelow: Array<string> = []
+      for (let j = i + 1; j < paragraphs.length && isPhoneLine(paragraphs[j].content); j++) {
+        telURLsBelow.push(...getTelURLs(paragraphs[j].content))
+      }
       for (const occurrence of findOccurrences(para.content, nameRegex, contactsByName)) {
+        if (!occurrence.linked && telURLsBelow.length > 0) {
+          const numbersOfName = getPhoneChoices({ ...occurrence, firstNames: [] }, contactsByName).map((c) => makeTelURL(c.phone.number))
+          occurrence.linked = numbersOfName.some((url) => telURLsBelow.includes(url))
+        }
         found.push({ para, occurrence })
       }
     }
@@ -131,7 +145,7 @@ export async function telefonnummernEinfuegen(): Promise<void> {
 
     // Work out the number for each of them, asking the user where there are several. The same question is only asked once.
     const answers: Map<string, number> = new Map() // key -> index of the chosen number, or SKIP
-    const insertionsByPara: Map<TParagraph, Array<{ position: number, insert: string }>> = new Map()
+    const linksByPara: Map<TParagraph, Array<{ name: string, link: string }>> = new Map()
     let numInserted = 0
     for (const { para, occurrence } of wanted) {
       const choices: Array<PhoneChoice> = getPhoneChoices(occurrence, contactsByName)
@@ -150,24 +164,26 @@ export async function telefonnummernEinfuegen(): Promise<void> {
         }
       }
       if (chosen === SKIP) continue
-      const insertion = { position: occurrence.end, insert: ` ${makePhoneLink(choices[chosen].phone.number, config.linkPrefix)}` }
-      const list = insertionsByPara.get(para)
+      const entry = { name: occurrence.name, link: makePhoneLink(choices[chosen].phone.number, config.linkPrefix) }
+      const list = linksByPara.get(para)
       if (list) {
-        list.push(insertion)
+        list.push(entry)
       } else {
-        insertionsByPara.set(para, [insertion])
+        linksByPara.set(para, [entry])
       }
       numInserted++
     }
 
-    // Write the changes
-    const changedParas: Array<TParagraph> = []
-    for (const [para, insertions] of insertionsByPara) {
-      para.content = applyInsertions(para.content, insertions)
-      changedParas.push(para)
-    }
-    if (changedParas.length > 0) {
-      Editor.updateParagraphs(changedParas)
+    // Write the new lines: below the line with the name, indented one step further.
+    // From the bottom of the note upwards, so that the line numbers stay valid.
+    const parasToDo = Array.from(linksByPara.keys()).sort((a, b) => b.lineIndex - a.lineIndex)
+    for (const para of parasToDo) {
+      const entries = linksByPara.get(para) ?? []
+      // the name is only written if the line has several names with a number
+      const withName = entries.length > 1
+      for (const entry of [...entries].reverse()) {
+        Editor.insertParagraph(makePhoneLine(entry.link, para.indents + 1, withName ? entry.name : ''), para.lineIndex + 1, 'text')
+      }
     }
     logInfo(pluginJson, `${numInserted} Telefonnummer(n) in '${note.filename}' eingetragen`)
     if (numInserted === 0) {

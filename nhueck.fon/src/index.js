@@ -1,6 +1,6 @@
 // @flow
 //-----------------------------------------------------------------------------
-// Fon (nhueck): Telefonnummern aus dem Adressbuch hinter Nachnamen schreiben
+// Fon (nhueck): Telefonnummern aus dem Adressbuch unter Nachnamen schreiben
 //-----------------------------------------------------------------------------
 
 import pluginJson from '../plugin.json'

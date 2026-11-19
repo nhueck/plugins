@@ -3,10 +3,10 @@
   "macOS.minVersion": "10.13.0",
   "plugin.id": "nhueck.fon",
   "plugin.name": "📞 Fon (nhueck)",
-  "plugin.description": "Sucht in der geöffneten Notiz nach Nachnamen aus dem Adressbuch und schreibt die Telefonnummer anklickbar dahinter. Die Kontakte kommen aus einer Notiz, die ein Apple-Kurzbefehl aus dem Adressbuch füllt.",
+  "plugin.description": "Sucht in der geöffneten Notiz nach Nachnamen aus dem Adressbuch und schreibt die Telefonnummer anklickbar in die Zeile darunter. Die Kontakte kommen aus einer Notiz, die ein Apple-Kurzbefehl aus dem Adressbuch füllt.",
   "plugin.author": "nhueck",
-  "plugin.version": "0.1.0",
-  "plugin.lastUpdateInfo": "0.1.0: erste Version",
+  "plugin.version": "0.2.0",
+  "plugin.lastUpdateInfo": "0.2.0: Telefonnummer in eigener, eingerückter Zeile unter dem Namen. 0.1.0: erste Version",
   "plugin.dependencies": [],
   "plugin.script": "script.js",
   "plugin.isRemote": "false",
@@ -14,7 +14,7 @@
     {
       "name": "Telefonnummern einfügen",
       "alias": ["fon", "tel"],
-      "description": "Schreibt hinter die Nachnamen in der geöffneten Notiz die Telefonnummer aus dem Adressbuch",
+      "description": "Schreibt unter die Nachnamen in der geöffneten Notiz die Telefonnummer aus dem Adressbuch",
       "jsFunction": "telefonnummernEinfuegen"
     },
     {
@@ -62,9 +62,9 @@
     {
       "key": "linkPrefix",
       "title": "Zeichen vor der Nummer",
-      "description": "Wird im Link vor die Nummer gesetzt. Leer lassen, um nur die Nummer zu zeigen.",
+      "description": "Wird im Link vor die Nummer gesetzt, z. B. „📞 “. Leer lassen, um nur die Nummer zu zeigen.",
       "type": "string",
-      "default": "📞 ",
+      "default": "",
       "required": false
     },
     {

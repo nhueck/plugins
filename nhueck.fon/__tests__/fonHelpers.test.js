@@ -1,14 +1,16 @@
 /* global describe, expect, test */
 // @flow
 import {
-  applyInsertions,
   findOccurrences,
   formatContactsNote,
   getNameVariants,
   getPhoneChoices,
+  getTelURLs,
   groupByLastName,
+  isPhoneLine,
   makeChoiceLabel,
   makeNameRegex,
+  makePhoneLine,
   makePhoneLink,
   makeTelURL,
   parseContactsNote,
@@ -132,15 +134,24 @@ describe('makeTelURL() and makePhoneLink()', () => {
   })
 })
 
-describe('applyInsertions()', () => {
-  test('inserts at several positions', () => {
-    const text = 'Müller und Huber'
-    expect(
-      applyInsertions(text, [
-        { position: 6, insert: ' [1](tel:1)' },
-        { position: 16, insert: ' [2](tel:2)' },
-      ]),
-    ).toEqual('Müller [1](tel:1) und Huber [2](tel:2)')
+describe('phone lines', () => {
+  const link = makePhoneLink('+49 171 1234567', '📞 ')
+  test('makePhoneLine()', () => {
+    expect(makePhoneLine(link, 1)).toEqual('\t[📞 +49 171 1234567](tel:+491711234567)')
+    expect(makePhoneLine(link, 0)).toEqual('[📞 +49 171 1234567](tel:+491711234567)')
+    expect(makePhoneLine(link, 2, 'Müller')).toEqual('\t\tMüller: [📞 +49 171 1234567](tel:+491711234567)')
+  })
+  test('isPhoneLine()', () => {
+    expect(isPhoneLine(makePhoneLine(link, 1))).toEqual(true)
+    expect(isPhoneLine(makePhoneLine(link, 0, 'von der Heide'))).toEqual(true)
+    expect(isPhoneLine('Müller [📞 0821 1](tel:08211) anrufen')).toEqual(false)
+    expect(isPhoneLine('[Seite](https://example.com)')).toEqual(false)
+    expect(isPhoneLine('Herrn Müller anrufen')).toEqual(false)
+  })
+  test('getTelURLs()', () => {
+    expect(getTelURLs(makePhoneLine(link, 1, 'Müller'))).toEqual(['tel:+491711234567'])
+    expect(getTelURLs('[a](tel:1) und [b](https://x.de) und [c](tel:+2)')).toEqual(['tel:1', 'tel:+2'])
+    expect(getTelURLs('nichts')).toEqual([])
   })
 })
 

@@ -25,7 +25,7 @@ export type Occurrence = {
   name: string, // the last name, as in the address book
   start: number, // position of the name in the text
   end: number, // position just after the name
-  linked: boolean, // already followed by a phone link?
+  linked: boolean, // already followed by a phone link in the same line? (Links in the lines below are checked by the caller.)
   firstNames: Array<string>, // first names (of contacts with this last name) found next to the name; usually empty
 }
 
@@ -313,16 +313,30 @@ export function makeChoiceLabel(choice: PhoneChoice): string {
 }
 
 /**
- * Insert pieces of text into a line.
- * @param {string} text
- * @param {Array<{ position: number, insert: string }>} insertions in any order
+ * Make the line that is written below the line with the name: indented, with the phone link.
+ * @param {string} link from makePhoneLink()
+ * @param {number} indents how far to indent the line (number of tabs)
+ * @param {string} name to write before the link; only needed if several names of one line get a number
  * @returns {string}
  */
-export function applyInsertions(text: string, insertions: Array<{ position: number, insert: string }>): string {
-  let out = text
-  // from right to left, so that the positions stay valid
-  for (const { position, insert } of [...insertions].sort((a, b) => b.position - a.position)) {
-    out = `${out.slice(0, position)}${insert}${out.slice(position)}`
-  }
-  return out
+export function makePhoneLine(link: string, indents: number, name: string = ''): string {
+  return `${'\t'.repeat(Math.max(0, indents))}${name !== '' ? `${name}: ` : ''}${link}`
+}
+
+/**
+ * Is this a line as written by makePhoneLine(), i.e. nothing but a phone link (and perhaps a name before it)?
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function isPhoneLine(text: string): boolean {
+  return /^\s*(?:[^[\]]*:\s*)?\[[^\]]*\]\(tel:[^)]*\)\s*$/.test(text)
+}
+
+/**
+ * Get the 'tel:' URLs of all the phone links in a text.
+ * @param {string} text
+ * @returns {Array<string>}
+ */
+export function getTelURLs(text: string): Array<string> {
+  return Array.from(text.matchAll(/\]\((tel:[^)]*)\)/g)).map((m) => m[1])
 }

@@ -1,8 +1,13 @@
 # 📞 Fon (nhueck)
 
-Sucht in der geöffneten Notiz nach Nachnamen, die auch im Adressbuch stehen, und schreibt die Telefonnummer anklickbar dahinter:
+Sucht in der geöffneten Notiz nach Nachnamen, die auch im Adressbuch stehen, und schreibt die Telefonnummer anklickbar in eine eingerückte Zeile darunter:
 
-`Herrn Müller anrufen` wird zu `Herrn Müller [📞 +49 171 1234567](tel:+491711234567) anrufen`
+```
+Herrn Müller anrufen
+	[+49 171 1234567](tel:+491711234567)
+```
+
+NotePlan zeigt davon nur den blauen Link „+49 171 1234567“; die Klammern erscheinen nur, solange der Cursor im Link steht.
 
 - **/Telefonnummern einfügen** (Alias `fon`, `tel`): bearbeitet die geöffnete Notiz.
 - **/kontakteImportieren**: übernimmt die Kontakte in die Kontakte-Notiz. Wird vom Kurzbefehl aufgerufen (siehe unten).
@@ -14,6 +19,7 @@ Sucht in der geöffneten Notiz nach Nachnamen, die auch im Adressbuch stehen, un
 - Steht der Vorname dabei („Anna Müller“ oder „Müller, Anna“), kommen nur die Nummern dieser Person in Frage.
 - Kontakte ohne Nachnamen werden unter ihrem Firmennamen gefunden.
 - Zusätze in Klammern und Doppeleinträge zählen mit: „Müller (Glück)“ wird auch unter „Müller“ gefunden, „Moser/Wiens“ auch unter „Moser“ und „Wiens“.
+- Stehen in einer Zeile mehrere Namen, bekommt jeder seine eigene Zeile, mit dem Namen vor der Nummer.
 - Namen, die schon eine Nummer haben, bleiben unverändert. Normalerweise bekommt nur das erste Vorkommen je Name eine Nummer (in den Einstellungen änderbar).
 - Nicht angefasst werden: Titel der Notiz, Frontmatter, Code, Links, `[[Notiz-Links]]`, #Tags und @Erwähnungen.
 - Nachnamen, die auch gewöhnliche Wörter sind (Koch, Klein …), lassen sich in den Einstellungen ausschließen.
