@@ -8,7 +8,8 @@
 
 import pluginJson from '../plugin.json'
 import { CALENDAR_SORT_ORDER, compareByCalendarOrder, getCalendarSortKey, getGermanCalendarLink } from './calendarHelpers'
-import { nowLocaleShortDateTime, getDateStrForStartofPeriodFromCalendarFilename } from '@helpers/NPdateTime'
+import { ensureRefreshTrigger, getTriggersLine, makeCriteriaLine, makeStandLine } from './standHelpers'
+import { getDateStrForStartofPeriodFromCalendarFilename } from '@helpers/NPdateTime'
 import { convertISODateFilenameToNPDayFilename, withinDateRange } from '@helpers/dateTime'
 import { clo, logDebug, logError, logInfo, logTimer, logWarn, timer } from '@helpers/dev'
 import {
@@ -1192,9 +1193,15 @@ export async function writeSearchResultsToNote(
     logDebug('writeSearchResultsToNote', `Starting with ${resultSet.resultCount} results for [${searchTermsRepStr}] ...`)
     // Note: the Refresh button has to come first, as the refresh trigger and the 'edit saved search' command use the first URL in the line
     const editURL = 'noteplan://x-callback-url/runPlugin?pluginID=nhueck.search&command=editSavedSearch'
-    const xCallbackText = (xCallbackURL !== '') ? ` [🔄 Refresh results for ${searchTermsRepStr}](${xCallbackURL}) [✏️ Edit](${editURL})` : ''
+    // If the note has a title of its own, the section is headed by that title, and the search criteria follow in a line of their own.
+    // Otherwise the search terms are the heading (as they are the title, too).
+    const hasOwnTitle = !requestedTitle.startsWith(searchTermsRepStr)
+    const headingText = hasOwnTitle ? requestedTitle.split('#').join('').trim() : searchTermsRepStr
+    const criteriaLine = hasOwnTitle ? `${makeCriteriaLine(searchTermsRepStr, xCallbackURL !== '' ? parseSavedSearchURL(xCallbackURL) : null)}\n` : ''
+    const xCallbackText = (xCallbackURL !== '') ? `[🔄 Refresh results for ${headingText.replace(/[[\]]/g, '')}](${xCallbackURL}) [✏️ Edit](${editURL})\n` : ''
     logDebug('writeSearchResultsToNote', `- xCallbackText = ${xCallbackText}`)
-    const timestampAndRefreshLine = `at ${nowLocaleShortDateTime()}${xCallbackText}`
+    // Then the buttons, then when the results were written
+    const timestampAndRefreshLine = `${criteriaLine}${xCallbackText}${makeStandLine(new Date())}`
 
     // Add each result line to output array
     // let titleLines = `# ${requestedTitle}\n${timestampAndRefreshLine}`
@@ -1210,11 +1217,11 @@ export async function writeSearchResultsToNote(
     if (resultSet.resultCount > 0) {
       resultsContent = `\n${createFormattedResultLines(resultSet, config).join('\n')}`
       const resultCountsStr = resultCounts(resultSet)
-      headingLine += `${searchTermsRepStr} ${resultCountsStr}`
+      headingLine += `${headingText} ${resultCountsStr}`
     }
     else {
       // No results
-      headingLine = `${searchTermsRepStr}`
+      headingLine = `${headingText}`
       resultsContent = "\n(no matches)"
     }
     // Prepend the results part with the timestamp+refresh line
@@ -1242,8 +1249,18 @@ export async function writeSearchResultsToNote(
       // (Older notes without the frontmatter head get fully re-written once, to give them the new head.)
       if (justReplaceSection && outputNote.paragraphs.length > 1 && (outputNote.content ?? '').startsWith('---')) {
         // Just replace the heading section, to allow for some text to be left between runs
-        logDebug('writeSearchResultsToNote', `- just replacing section '${searchTermsRepStr}' in ${outputNote.filename}`)
-        replaceSection(outputNote, searchTermsRepStr, headingLine, config.headingLevel, resultsContent)
+        // Note: notes written by earlier versions still have the search terms as their heading
+        const hasSectionForHeading = outputNote.paragraphs.some((p) => p.type === 'title' && p.content.startsWith(headingText))
+        const sectionToReplace = hasSectionForHeading ? headingText : searchTermsRepStr
+        logDebug('writeSearchResultsToNote', `- just replacing section '${sectionToReplace}' in ${outputNote.filename}`)
+        replaceSection(outputNote, sectionToReplace, headingLine, config.headingLevel, resultsContent)
+
+        // Make sure the note has the trigger that runs the search again each time the note is opened
+        const contentNow = outputNote.content ?? ''
+        const contentWithTrigger = xCallbackURL !== '' ? ensureRefreshTrigger(contentNow) : contentNow
+        if (contentWithTrigger !== contentNow) {
+          outputNote.content = contentWithTrigger
+        }
 
         // Because of a change in where the timestamp is displayed, we potentially need to remove it from line 1 of the note
         const line1 = outputNote.paragraphs[1].content
@@ -1255,7 +1272,11 @@ export async function writeSearchResultsToNote(
       else {
         // Replace all note contents
         logDebug('writeSearchResultsToNote', `- replacing note content in ${outputNote.filename}`)
-        const newContent = `${titleLines}\n${headingMarker} ${headingLine}\n${resultsContent}`
+        // Keep any triggers the note already has, and add the one that runs the search again each time the note is opened
+        const existingTriggersLine = getTriggersLine(outputNote.content ?? '')
+        const headLines = existingTriggersLine !== '' ? titleLines.replace(/\n---$/, `\n${existingTriggersLine}\n---`) : titleLines
+        const fullContent = `${headLines}\n${headingMarker} ${headingLine}\n${resultsContent}`
+        const newContent = xCallbackURL !== '' ? ensureRefreshTrigger(fullContent) : fullContent
         // logDebug('', `${newContent} = ${newContent.length} bytes`)
         outputNote.content = newContent
       }

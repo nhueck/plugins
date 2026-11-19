@@ -51,11 +51,11 @@ There are further display options you can set:
 - the commands to automatically decides the name of the note to save the search results to based on the search term, which avoids the final prompt, by the 'Automatically save?' setting.
 
 ### Refreshing Results
-Each results note has a ` [🔄 Refresh results for ...]` pseudo-button under the title of the note. Clicking that runs the search again, and replaces the earlier set of results:
+Each results note has a ` [🔄 Refresh results for ...]` pseudo-button under the title of the note. Clicking that runs the search again, and replaces the earlier set of results. The line below it says when the results were written, e.g. `Stand: 19.11.2026, 9:37 Uhr`:
 
 ![refresh results](highlight-refresh-in-search-results.png)
 
-A saved search can be **automatically refreshed when opening it**. To enable this, run "/add trigger" on the saved search note, and select "🔎 Search Extensions: 'refreshSavedSearch'" from the list.  To turn this off again, just remove the line starting `triggers: onOpen` from the note's properties.
+A saved search is **automatically refreshed each time its note is opened**: the plugin adds `triggers: onOpen => nhueck.search.refreshSavedSearch` to the note's properties when it writes the results. (If you remove that line, it comes back with the next manual refresh.)
 
 ## Extended search syntax
 - put a `+`  and `-` search operator on the front of terms that **must** appear, and **must not** appear, respectively.  For example `+must may could -cannot"` has 4 search terms, the first must be present, the last mustn't be present, and the middle two (may, could) can be.

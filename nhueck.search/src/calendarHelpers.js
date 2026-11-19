@@ -20,6 +20,7 @@ export type CalendarFilenameInfo = {
 }
 
 const WEEKDAYS_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
+const RELATIVE_DAYS_DE: { [string]: string } = { '-1': 'Gestern', '0': 'Heute', '1': 'Morgen' }
 const MONTHS_DE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
 const TEAMSPACE_PREFIX = '%%NotePlan%%/'
 const MS_PER_DAY = 86400000
@@ -92,21 +93,26 @@ export function parseCalendarFilename(filename: string): ?CalendarFilenameInfo {
 
 /**
  * German display title for a calendar note filename:
- * - day:     '20261116' -> 'Montag, 16.11.2026'
+ * - day:     '20261116' -> 'Montag, 16.11.2026'; yesterday, today and tomorrow get
+ *            'Gestern, 18.11.2026', 'Heute, 19.11.2026', 'Morgen, 20.11.2026' instead of the weekday
  * - week:    '2026-W47' -> 'Woche vom 16.11.2026 bis 22.11.2026'
  * - month:   '2026-11'  -> 'November 2026'
  * - quarter: '2026-Q4'  -> '4. Quartal 2026'
  * - year:    '2026'     -> '2026'
  * @param {string} filename
+ * @param {Date} today the current date (its local calendar day is used); only needed for tests
  * @returns {?string} null if this isn't a calendar note filename
  */
-export function getGermanCalendarTitle(filename: string): ?string {
+export function getGermanCalendarTitle(filename: string, today: Date = new Date()): ?string {
   const info = parseCalendarFilename(filename)
   if (!info) return null
   const { start, end } = info
   switch (info.type) {
-    case 'day':
-      return `${WEEKDAYS_DE[start.getUTCDay()]}, ${dmy(start)}`
+    case 'day': {
+      const todayUTC = utc(today.getFullYear(), today.getMonth() + 1, today.getDate())
+      const daysFromToday = Math.round((start.getTime() - todayUTC.getTime()) / MS_PER_DAY)
+      return `${RELATIVE_DAYS_DE[String(daysFromToday)] ?? WEEKDAYS_DE[start.getUTCDay()]}, ${dmy(start)}`
+    }
     case 'week':
       return `Woche vom ${dmy(start)} bis ${dmy(end)}`
     case 'month':
@@ -121,11 +127,12 @@ export function getGermanCalendarTitle(filename: string): ?string {
 /**
  * Link that shows the German title but still opens the calendar note itself.
  * @param {string} filename
+ * @param {Date} today the current date; only needed for tests
  * @returns {?string} null if this isn't a calendar note filename
  */
-export function getGermanCalendarLink(filename: string): ?string {
+export function getGermanCalendarLink(filename: string, today: Date = new Date()): ?string {
   const info = parseCalendarFilename(filename)
-  const title = getGermanCalendarTitle(filename)
+  const title = getGermanCalendarTitle(filename, today)
   if (!info || title == null) return null
   if (info.isTeamspace) {
     return `[${title}](noteplan://x-callback-url/openNote?filename=${encodeURIComponent(filename)})`

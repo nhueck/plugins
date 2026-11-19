@@ -74,7 +74,9 @@ export async function refreshSavedSearch(): Promise<void> {
     const noteReadOnly: CoreNoteFields = Editor.note
 
     // Check to see if this has been called in the last 5000ms: if so don't proceed, as this could be a double call, which could lead to an infinite loop
-    const timeSinceLastEdit: number = Date.now() - Number(noteReadOnly.versions[0].date)
+    // Note: not every note has saved versions, so fall back to its changed date
+    const lastChange = noteReadOnly.versions?.[0]?.date ?? noteReadOnly.changedDate
+    const timeSinceLastEdit: number = lastChange != null ? Date.now() - Number(lastChange) : Infinity
     if (timeSinceLastEdit <= 5000) {
       logDebug(pluginJson, `refreshSavedSearch fired, but ignored, as it was called only ${String(timeSinceLastEdit)}ms after the note was last updated`)
       return
@@ -112,27 +114,27 @@ export async function refreshSavedSearch(): Promise<void> {
     await CommandBar.onAsyncThread()
     switch (cmdName) {
       case "search": { // -> searchOverAll()
-        searchOverAll(arg0, arg1, arg2, arg3, arg4)
+        await searchOverAll(arg0, arg1, arg2, arg3, arg4)
         break
       }
       case "searchOverCalendar": {
-        searchOverCalendar(arg0, arg1, arg2, arg3, arg4)
+        await searchOverCalendar(arg0, arg1, arg2, arg3, arg4)
         break
       }
       case "searchOverNotes": {
-        searchOverNotes(arg0, arg1, arg2, arg3, arg4)
+        await searchOverNotes(arg0, arg1, arg2, arg3, arg4)
         break
       }
       case "searchOpenTasks": {
-        searchOpenTasks(arg0, arg1, arg2)
+        await searchOpenTasks(arg0, arg1, arg2)
         break
       }
       case "searchInPeriod": { // -> searchPeriod()
-        searchPeriod(arg0, arg1, arg2, arg3, arg4, arg5)
+        await searchPeriod(arg0, arg1, arg2, arg3, arg4, arg5)
         break
       }
       case "quickSearch": {
-        quickSearch(arg0, arg1, arg2, arg3)
+        await quickSearch(arg0, arg1, arg2, arg3)
         break
       }
     }

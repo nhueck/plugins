@@ -4,8 +4,15 @@ import { compareByCalendarOrder, getCalendarSortKey, getGermanCalendarLink, getG
 
 describe('calendarHelpers.js tests', () => {
   describe('getGermanCalendarTitle()', () => {
-    test('day', () => expect(getGermanCalendarTitle('20261116.md')).toEqual('Montag, 16.11.2026'))
-    test('day (.txt)', () => expect(getGermanCalendarTitle('20260301.txt')).toEqual('Sonntag, 01.03.2026'))
+    const today = new Date(2026, 10, 19, 23, 30) // local time, late in the evening
+    test('day', () => expect(getGermanCalendarTitle('20261116.md', today)).toEqual('Montag, 16.11.2026'))
+    test('day (.txt)', () => expect(getGermanCalendarTitle('20260301.txt', today)).toEqual('Sonntag, 01.03.2026'))
+    test('yesterday', () => expect(getGermanCalendarTitle('20261118.md', today)).toEqual('Gestern, 18.11.2026'))
+    test('today', () => expect(getGermanCalendarTitle('20261119.md', today)).toEqual('Heute, 19.11.2026'))
+    test('tomorrow', () => expect(getGermanCalendarTitle('20261120.md', today)).toEqual('Morgen, 20.11.2026'))
+    test('day before yesterday', () => expect(getGermanCalendarTitle('20261117.md', today)).toEqual('Dienstag, 17.11.2026'))
+    test('day after tomorrow', () => expect(getGermanCalendarTitle('20261121.md', today)).toEqual('Samstag, 21.11.2026'))
+    test('tomorrow across year boundary', () => expect(getGermanCalendarTitle('20270101.md', new Date(2026, 11, 31, 0, 5))).toEqual('Morgen, 01.01.2027'))
     test('week', () => expect(getGermanCalendarTitle('2026-W47.md')).toEqual('Woche vom 16.11.2026 bis 22.11.2026'))
     test('week across year boundary', () => expect(getGermanCalendarTitle('2026-W01.md')).toEqual('Woche vom 29.12.2025 bis 04.01.2026'))
     test('week 53', () => expect(getGermanCalendarTitle('2026-W53.md')).toEqual('Woche vom 28.12.2026 bis 03.01.2027'))
@@ -18,7 +25,8 @@ describe('calendarHelpers.js tests', () => {
 
   describe('getGermanCalendarLink()', () => {
     test('day keeps link to note', () =>
-      expect(getGermanCalendarLink('20261116.md')).toEqual('[[20261116|Montag, 16.11.2026]]'))
+      expect(getGermanCalendarLink('20261116.md', new Date(2026, 10, 19))).toEqual('[[20261116|Montag, 16.11.2026]]'))
+    test('today', () => expect(getGermanCalendarLink('20261119.md', new Date(2026, 10, 19))).toEqual('[[20261119|Heute, 19.11.2026]]'))
     test('week', () => expect(getGermanCalendarLink('2026-W47.md')).toEqual('[[2026-W47|Woche vom 16.11.2026 bis 22.11.2026]]'))
     test('regular note', () => expect(getGermanCalendarLink('Projects/Foo.md')).toBeNull())
   })
